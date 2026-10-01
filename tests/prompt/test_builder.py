@@ -221,3 +221,44 @@ def test_missing_files_handled(tmp_path: Path):
     )
     prompt = builder.build()
     assert "Jarvis" in prompt
+
+
+def test_include_date_appends_dynamic_date_section(memory_dir: Path):
+    from datetime import datetime
+
+    from openjarvis.prompt.builder import SystemPromptBuilder
+
+    builder = SystemPromptBuilder(
+        agent_template="You are Jarvis.",
+        memory_files_config=MemoryFilesConfig(
+            soul_path=str(memory_dir / "SOUL.md"),
+            memory_path=str(memory_dir / "MEMORY.md"),
+            user_path=str(memory_dir / "USER.md"),
+        ),
+        system_prompt_config=SystemPromptConfig(include_date=True),
+        session_context="Platform: CLI",
+    )
+
+    sections = builder.sections()
+
+    assert sections[-1].name == "current_date"
+    assert sections[-1].cache_segment == "dynamic_suffix"
+    assert str(datetime.now().year) in sections[-1].content
+    assert builder.build() == "\n\n".join(section.content for section in sections)
+
+
+def test_date_section_off_by_default(memory_dir: Path):
+    from openjarvis.prompt.builder import SystemPromptBuilder
+
+    builder = SystemPromptBuilder(
+        agent_template="You are Jarvis.",
+        memory_files_config=MemoryFilesConfig(
+            soul_path=str(memory_dir / "SOUL.md"),
+            memory_path=str(memory_dir / "MEMORY.md"),
+            user_path=str(memory_dir / "USER.md"),
+        ),
+        system_prompt_config=SystemPromptConfig(),
+    )
+
+    assert "current_date" not in [s.name for s in builder.sections()]
+    assert "## Current Date" not in builder.build()

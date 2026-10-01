@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 from pathlib import Path
 from typing import List, Literal, Optional, Tuple
 
@@ -59,6 +60,8 @@ class SystemPromptBuilder:
             parts.append(f"\n\n## Session Context\n\n{self._session_context}")
         if self._previous_state:
             parts.append(f"\n\n## Previous State\n\n{self._previous_state}")
+        if self._sp_config.include_date:
+            parts.append(f"\n\n{self._current_date_section()}")
         return "".join(parts)
 
     def sections(self) -> list[PromptSection]:
@@ -82,7 +85,28 @@ class SystemPromptBuilder:
                     cache_segment="dynamic_suffix",
                 )
             )
+        if self._sp_config.include_date:
+            sections.append(
+                PromptSection(
+                    name="current_date",
+                    content=self._current_date_section(),
+                    source="system_prompt.include_date",
+                    cache_segment="dynamic_suffix",
+                )
+            )
         return sections
+
+    @staticmethod
+    def _current_date_section() -> str:
+        """Today's local date, so the model can tell when its knowledge is stale.
+
+        Date only (no time) so the suffix changes once a day, not per request.
+        """
+        today = datetime.now().astimezone()
+        return (
+            "## Current Date\n\n"
+            f"Today is {today:%A}, {today.day} {today:%B %Y} ({today:%Z})."
+        )
 
     def _get_frozen_sections(self) -> list[PromptSection]:
         if self._frozen_sections is None:

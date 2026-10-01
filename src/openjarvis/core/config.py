@@ -1674,6 +1674,7 @@ class SystemPromptConfig:
     user_max_chars: int = 1500
     skill_desc_max_chars: int = 60
     truncation_strategy: str = "head_tail"
+    include_date: bool = False  # append today's local date as a dynamic suffix
 
 
 @dataclass(slots=True)
