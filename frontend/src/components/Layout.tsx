@@ -26,7 +26,12 @@ export function Layout() {
 
   return (
     <div className="flex flex-col h-full w-full overflow-hidden relative" style={{ paddingTop: '3px' }}>
-      <div className="hud-backdrop" aria-hidden="true" />
+      <div className="hud-backdrop" aria-hidden="true">
+        <div className="hud-rings" />
+        <div className="hud-sweep" />
+        <div className="hud-scanlines" />
+        <div className="hud-scan-beam" />
+      </div>
       <SystemPulse apiReachable={apiReachable} />
       <ApprovalBell />
 

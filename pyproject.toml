@@ -164,6 +164,8 @@ security-signing = ["cryptography>=43"]
 sandbox-wasm = ["wasmtime>=25"]
 sandbox-docker = ["docker>=7.0"]
 dashboard = ["textual>=0.80"]
+# `jarvis os`: full-screen terminal HUD (Textual UI + live system diagnostics).
+hud = ["textual>=0.80", "psutil>=5.9"]
 speech = [
     "faster-whisper>=1.0",
     # Keep the pip-visible speech extra installable on supported Python 3.10.

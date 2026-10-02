@@ -119,16 +119,11 @@ export function MessageBubble({ message, isLive = false }: Props) {
 
   if (isUser) {
     return (
-      <div className="flex justify-end mb-4">
+      <div className="flex flex-col items-end mb-5">
+        <div className="hud-msg-label">You</div>
         <div
-          className="max-w-[85%] px-4 py-2.5 text-sm leading-relaxed"
-          style={{
-            background: 'var(--color-user-bubble)',
-            color: 'var(--color-user-bubble-text)',
-            borderRadius: 'var(--radius-xl) var(--radius-xl) var(--radius-sm) var(--radius-xl)',
-            whiteSpace: 'pre-wrap',
-            wordBreak: 'break-word',
-          }}
+          className="hud-user-bubble hud-corners max-w-[85%] px-4 py-2.5 text-sm leading-relaxed"
+          style={{ whiteSpace: 'pre-wrap', wordBreak: 'break-word' }}
         >
           {message.content}
         </div>
@@ -136,8 +131,23 @@ export function MessageBubble({ message, isLive = false }: Props) {
     );
   }
 
+  // A live reply starts out empty; ChatArea shows the processing indicator
+  // until something arrives, so only frame the reply once it has a body.
+  const hasBody =
+    cleanContent.length > 0 ||
+    (message.toolCalls?.length ?? 0) > 0 ||
+    Boolean(message.isResearch) ||
+    (message.researchTraces?.length ?? 0) > 0 ||
+    Boolean(message.audio?.url);
+
   return (
-    <div className="group mb-6">
+    <div className={`group mb-6 ${hasBody ? 'hud-assistant' : ''}`}>
+      {hasBody && (
+        <div className="hud-msg-label hud-msg-label-assistant">
+          <span className="hud-status-dot" aria-hidden="true" />
+          J.A.R.V.I.S.
+        </div>
+      )}
       {/* Deep Research timeline (steps + status) */}
       {(message.isResearch || (message.researchTraces && message.researchTraces.length > 0)) && (
         <ResearchTimeline

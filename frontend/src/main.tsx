@@ -5,6 +5,12 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import App from './App';
 import { initApiBase } from './lib/api';
 import { initAnalytics } from './lib/analytics';
+// HUD typefaces, bundled locally (no font CDN requests).
+import '@fontsource-variable/orbitron';
+import '@fontsource/rajdhani/500.css';
+import '@fontsource/rajdhani/600.css';
+import '@fontsource/rajdhani/700.css';
+import '@fontsource/share-tech-mono';
 import './index.css';
 
 function applyTheme() {
