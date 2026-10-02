@@ -1,0 +1,218 @@
+/* J.A.R.V.I.S. OS — same palette as the web HUD (frontend/src/index.css). */
+
+$j-bg: #02070d;
+$j-surface: #03141f;
+$j-raised: #06263a;
+$j-line: #0f4a5c;
+$j-cyan: #2ee6ff;
+$j-cyan-dim: #1aa3bf;
+$j-text: #d7f4ff;
+$j-text-2: #86b9cf;
+$j-text-3: #5b8ca3;
+$j-amber: #ffb43a;
+
+Screen {
+    background: $j-bg;
+    color: $j-text;
+}
+
+/* ---- boot ---------------------------------------------------------- */
+
+BootScreen {
+    align: center middle;
+}
+
+#boot {
+    width: 100%;
+    height: auto;
+    padding: 1 2;
+}
+
+#boot-logo, #boot-tagline, #boot-progress, #boot-status {
+    width: 100%;
+    content-align: center middle;
+}
+
+#boot-tagline {
+    margin: 1 0 1 0;
+}
+
+#boot-log {
+    width: 72;
+    height: auto;
+    margin: 0 0 1 0;
+    padding: 0 2;
+    border-left: tall $j-line;
+}
+
+#boot-status {
+    margin-top: 1;
+}
+
+/* ---- HUD ----------------------------------------------------------- */
+
+#header {
+    height: 1;
+    background: $j-surface;
+}
+
+#body {
+    height: 1fr;
+}
+
+.panel {
+    border: round $j-line;
+    border-title-color: $j-cyan;
+    border-title-style: bold;
+    background: $j-bg;
+    padding: 0 1;
+}
+
+.panel:focus-within {
+    border: round $j-cyan-dim;
+}
+
+#left {
+    width: 34;
+}
+
+#diagnostics {
+    height: 1fr;
+}
+
+#comms {
+    width: 1fr;
+    height: 1fr;
+    scrollbar-size-vertical: 1;
+    scrollbar-background: $j-bg;
+    scrollbar-color: $j-line;
+    scrollbar-color-hover: $j-cyan-dim;
+    scrollbar-color-active: $j-cyan;
+}
+
+#right {
+    width: 30;
+}
+
+#reactor {
+    height: 15;
+}
+
+#modules {
+    height: auto;
+    color: $j-text-2;
+}
+
+#activity {
+    height: 1fr;
+    scrollbar-size-vertical: 1;
+    scrollbar-background: $j-bg;
+    scrollbar-color: $j-line;
+}
+
+.msg {
+    width: 100%;
+    height: auto;
+    margin: 0 0 1 0;
+}
+
+.msg.tool {
+    margin: 0;
+}
+
+.msg.shell {
+    padding: 0 1;
+    border-left: tall $j-cyan-dim;
+    background: $j-surface;
+}
+
+/* ---- prompt -------------------------------------------------------- */
+
+#prompt-bar {
+    height: 3;
+    border: round $j-cyan-dim;
+    background: $j-surface;
+}
+
+#prompt-bar:focus-within {
+    border: round $j-cyan;
+}
+
+#prompt-glyph {
+    width: 2;
+    color: $j-cyan;
+    text-style: bold;
+    padding: 0 0 0 1;
+}
+
+#prompt {
+    border: none;
+    height: 1;
+    padding: 0 1;
+    background: $j-surface;
+    color: $j-text;
+}
+
+#prompt:focus {
+    border: none;
+    background: $j-surface;
+}
+
+#prompt > .input--placeholder,
+#prompt > .input--suggestion {
+    color: $j-text-3;
+}
+
+#prompt > .input--cursor {
+    background: $j-cyan;
+    color: $j-bg;
+}
+
+/* ---- footer -------------------------------------------------------- */
+
+Footer {
+    background: $j-surface;
+}
+
+FooterKey {
+    background: $j-surface;
+    color: $j-text-3;
+}
+
+FooterKey .footer-key--key {
+    background: $j-raised;
+    color: $j-cyan;
+    text-style: bold;
+}
+
+FooterKey .footer-key--description {
+    color: $j-text-2;
+}
+
+/* ---- permission dialog --------------------------------------------- */
+
+ConfirmScreen {
+    align: center middle;
+    background: $j-bg 70%;
+}
+
+#confirm-box {
+    width: 74;
+    height: auto;
+    padding: 1 2;
+    border: heavy $j-amber;
+    background: $j-surface;
+}
+
+#confirm-body {
+    margin: 1 0;
+}
+
+#confirm-buttons {
+    height: auto;
+    align-horizontal: right;
+}
+
+#confirm-buttons Button {
+    margin-left: 2;
+}
