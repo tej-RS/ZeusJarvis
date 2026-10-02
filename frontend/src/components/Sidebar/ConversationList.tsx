@@ -50,7 +50,7 @@ export function ConversationList({ searchQuery }: Props) {
         return (
           <div
             key={conv.id}
-            className="group flex items-center rounded-lg cursor-pointer transition-colors"
+            className="group flex items-center rounded-[3px] cursor-pointer transition-colors"
             style={{
               background: isActive ? 'var(--color-bg-tertiary)' : 'transparent',
             }}

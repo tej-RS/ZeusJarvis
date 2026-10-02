@@ -20,11 +20,14 @@ import {
 } from 'lucide-react';
 import { ConversationList } from './ConversationList';
 import { useAppStore } from '../../lib/store';
+import { ArcReactor } from '../Hud/ArcReactor';
+import { useJarvisActivity } from '../Hud/useJarvisActivity';
 
 export function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchQuery, setSearchQuery] = useState('');
+  const activity = useJarvisActivity();
 
   const sidebarOpen = useAppStore((s) => s.sidebarOpen);
   const toggleSidebar = useAppStore((s) => s.toggleSidebar);
@@ -68,7 +71,7 @@ export function Sidebar() {
       {!sidebarOpen && (
         <button
           onClick={toggleSidebar}
-          className="fixed top-3 left-3 z-30 p-2 rounded-lg transition-colors cursor-pointer"
+          className="fixed top-3 left-3 z-30 p-2 rounded-[3px] transition-colors cursor-pointer"
           style={{ color: 'var(--color-text-secondary)', background: 'var(--color-bg-secondary)' }}
           onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
           onMouseLeave={(e) => (e.currentTarget.style.background = 'var(--color-bg-secondary)')}
@@ -93,15 +96,21 @@ export function Sidebar() {
         <div className="flex flex-col h-full w-[260px]">
           {/* Header */}
           <div className="flex items-center justify-between px-3 pt-3 pb-2">
-            <button
-              onClick={toggleSidebar}
-              className="p-2 rounded-lg transition-colors cursor-pointer"
-              style={{ color: 'var(--color-text-secondary)' }}
-              onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
-              onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
-            >
-              <PanelLeftClose size={18} />
-            </button>
+            <div className="flex items-center gap-1.5 min-w-0">
+              <button
+                onClick={toggleSidebar}
+                className="p-2 rounded-lg transition-colors cursor-pointer"
+                style={{ color: 'var(--color-text-secondary)' }}
+                onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-tertiary)')}
+                onMouseLeave={(e) => (e.currentTarget.style.background = 'transparent')}
+              >
+                <PanelLeftClose size={18} />
+              </button>
+              <div className="flex items-center gap-2 min-w-0">
+                <ArcReactor size={20} state={activity} />
+                <span className="hud-wordmark">J.A.R.V.I.S.</span>
+              </div>
+            </div>
             <div className="flex items-center gap-1">
               <button
                 onClick={() => updateSettings({ theme: nextTheme })}
@@ -129,7 +138,7 @@ export function Sidebar() {
           {/* Model badge */}
           <button
             onClick={() => setCommandPaletteOpen(true)}
-            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-lg text-xs transition-colors cursor-pointer"
+            className="mx-3 mb-2 flex items-center gap-2 px-3 py-2 rounded-[3px] text-xs transition-colors cursor-pointer"
             style={{
               background: 'var(--color-bg-secondary)',
               color: 'var(--color-text-secondary)',
@@ -171,7 +180,7 @@ export function Sidebar() {
           {/* Search */}
           <div className="px-3 mb-2">
             <div
-              className="flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm"
+              className="flex items-center gap-2 px-3 py-1.5 rounded-[3px] text-sm"
               style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
             >
               <Search size={14} style={{ color: 'var(--color-text-tertiary)' }} />
@@ -199,7 +208,7 @@ export function Sidebar() {
                 <button
                   key={item.path}
                   onClick={() => navigate(item.path)}
-                  className="relative flex items-center gap-3 px-3 py-2 rounded-lg text-sm transition-colors w-full text-left cursor-pointer"
+                  className="hud-nav relative flex items-center gap-3 px-3 py-2 transition-colors w-full text-left cursor-pointer"
                   style={{
                     background: isActive ? 'var(--color-accent-subtle)' : 'transparent',
                     color: isActive ? 'var(--color-text)' : 'var(--color-text-secondary)',

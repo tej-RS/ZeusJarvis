@@ -81,18 +81,18 @@ export function SystemPanel() {
       style={{
         width: 280,
         minWidth: 280,
-        background: 'var(--color-bg)',
+        background: 'var(--hud-glass)',
+        backdropFilter: 'blur(18px)',
+        WebkitBackdropFilter: 'blur(18px)',
         borderLeft: '1px solid var(--color-border)',
       }}
     >
-      {/* Header */}
+      {/* Header (right padding keeps the close button clear of the fixed approvals bell) */}
       <div
-        className="flex items-center justify-between px-4 py-3 shrink-0"
+        className="flex items-center justify-between pl-4 pr-14 py-3 shrink-0"
         style={{ borderBottom: '1px solid var(--color-border)' }}
       >
-        <span className="text-xs font-semibold tracking-wide uppercase" style={{ color: 'var(--color-text-secondary)' }}>
-          System
-        </span>
+        <span className="hud-wordmark">System</span>
         <button
           onClick={toggleSystemPanel}
           className="p-1 rounded-md transition-colors cursor-pointer"
@@ -106,7 +106,7 @@ export function SystemPanel() {
       <div className="flex flex-col gap-4 p-4">
         {/* Session Stats */}
         <section>
-          <h4 className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
+          <h4 className="hud-section-title mb-2">
             Session
           </h4>
           <div className="grid grid-cols-2 gap-2">
@@ -117,7 +117,7 @@ export function SystemPanel() {
 
         {/* Device */}
         <section>
-          <h4 className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
+          <h4 className="hud-section-title mb-2">
             Device
           </h4>
           <div className="grid grid-cols-2 gap-2">
@@ -147,13 +147,13 @@ export function SystemPanel() {
 
         {/* Cost Comparison */}
         <section>
-          <h4 className="text-[11px] font-medium uppercase tracking-wide mb-2" style={{ color: 'var(--color-text-tertiary)' }}>
+          <h4 className="hud-section-title mb-2">
             Cost Comparison
           </h4>
 
           {/* Local */}
           <div
-            className="flex items-center gap-2 rounded-lg px-3 py-2 mb-2"
+            className="flex items-center gap-2 rounded-[3px] px-3 py-2 mb-2"
             style={{ background: 'var(--color-accent-subtle)', border: '1px solid var(--color-accent)' }}
           >
             <HardDrive size={14} style={{ color: 'var(--color-accent)' }} />
@@ -173,7 +173,7 @@ export function SystemPanel() {
               return (
                 <div
                   key={provider.name}
-                  className="flex items-center gap-2 rounded-lg px-3 py-2"
+                  className="flex items-center gap-2 rounded-[3px] px-3 py-2"
                   style={{
                     background: provider.primary ? 'var(--color-bg-secondary)' : 'var(--color-bg-secondary)',
                     border: provider.primary ? '1px solid var(--color-border-accent, var(--color-accent))' : '1px solid transparent',
@@ -212,16 +212,13 @@ export function SystemPanel() {
 
         {/* Leaderboard / Share */}
         <section>
-          <h4
-            className="text-[11px] font-medium uppercase tracking-wide mb-2"
-            style={{ color: 'var(--color-text-tertiary)' }}
-          >
+          <h4 className="hud-section-title mb-2">
             Leaderboard
           </h4>
 
           <button
             onClick={() => setOptInModalOpen(true)}
-            className="w-full flex items-center gap-2 rounded-lg px-3 py-2.5 transition-colors cursor-pointer"
+            className="w-full flex items-center gap-2 rounded-[3px] px-3 py-2.5 transition-colors cursor-pointer"
             style={{
               background: optInEnabled
                 ? 'var(--color-accent-subtle)'
@@ -286,17 +283,14 @@ function MiniStat({
   unit?: string;
 }) {
   return (
-    <div
-      className="rounded-lg px-2.5 py-2"
-      style={{ background: 'var(--color-bg-secondary)', border: '1px solid var(--color-border)' }}
-    >
+    <div className="hud-tile px-2.5 py-2">
       <div className="flex items-center gap-1 mb-0.5">
         <Icon size={10} style={{ color: 'var(--color-accent)' }} />
         <span className="text-[10px]" style={{ color: 'var(--color-text-tertiary)' }}>
           {label}
         </span>
       </div>
-      <div className="text-sm font-semibold" style={{ color: 'var(--color-text)' }}>
+      <div className="hud-value text-sm">
         {value}
         {unit && (
           <span className="text-[10px] font-normal ml-0.5" style={{ color: 'var(--color-text-tertiary)' }}>

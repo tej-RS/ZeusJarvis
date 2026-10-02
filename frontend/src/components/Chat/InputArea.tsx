@@ -570,7 +570,7 @@ export function InputArea() {
             onClick={() => setDeepResearch(!deepResearch)}
             disabled={streamState.isStreaming}
             aria-pressed={deepResearch}
-            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50"
+            className="hud-toggle inline-flex items-center gap-1.5 px-2.5 py-1 transition-colors cursor-pointer disabled:cursor-default disabled:opacity-50"
             style={{
               background: deepResearch ? 'var(--color-accent-subtle)' : 'transparent',
               border: `1px solid ${deepResearch ? 'var(--color-accent)' : 'var(--color-border)'}`,
@@ -595,20 +595,13 @@ export function InputArea() {
           </div>
         )}
       </div>
-      <div
-        className="flex items-center gap-2 rounded-2xl px-4 py-3 transition-shadow"
-        style={{
-          background: 'var(--color-input-bg)',
-          border: '1px solid var(--color-input-border)',
-          boxShadow: 'var(--shadow-sm)',
-        }}
-      >
+      <div className="hud-input hud-corners flex items-center gap-2 px-4 py-3">
         <textarea
           ref={textareaRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={handleKeyDown}
-          placeholder={selectedModel ? 'Message OpenJarvis...' : 'Pick a model first (⌘K)...'}
+          placeholder={selectedModel ? 'Message JARVIS...' : 'Pick a model first (⌘K)...'}
           rows={1}
           className="flex-1 bg-transparent outline-none resize-none text-sm leading-relaxed"
           style={{ color: 'var(--color-text)', maxHeight: '200px' }}
@@ -617,7 +610,7 @@ export function InputArea() {
         {isCurrentChatStreaming ? (
           <button
             onClick={stopStreaming}
-            className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer"
+            className="p-2 rounded-[3px] transition-colors shrink-0 cursor-pointer"
             style={{ background: 'var(--color-error)', color: 'var(--color-on-accent)' }}
             title="Stop generating"
           >
@@ -635,21 +628,17 @@ export function InputArea() {
               onClick={sendMessage}
               disabled={streamState.isStreaming || !input.trim() || modelLoading || !selectedModel}
               title={selectedModel ? 'Send message' : 'Pick a model first (⌘K)'}
-              className="p-2 rounded-xl transition-colors shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
-              style={{
-                background: input.trim() ? 'var(--color-accent)' : 'var(--color-bg-tertiary)',
-                color: input.trim() ? 'white' : 'var(--color-text-tertiary)',
-              }}
+              className="hud-send p-2 shrink-0 cursor-pointer disabled:opacity-30 disabled:cursor-default"
+              data-ready={input.trim() ? 'true' : 'false'}
             >
               <Send size={16} />
             </button>
           </div>
         )}
       </div>
-      <div className="flex items-center justify-center mt-2 text-[11px]" style={{ color: 'var(--color-text-tertiary)' }}>
+      <div className="hud-readout flex items-center justify-center mt-2">
         <span>
-          <kbd className="font-mono">Enter</kbd> to send &middot;{' '}
-          <kbd className="font-mono">Shift+Enter</kbd> for new line
+          <kbd>Enter</kbd> to send &middot; <kbd>Shift+Enter</kbd> for new line
         </span>
       </div>
     </div>
