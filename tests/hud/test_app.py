@@ -310,3 +310,19 @@ def test_multiprocessing_locks_work_under_textual_stderr() -> None:
     )
     assert result.returncode == 0, result.stderr[-2000:]
     assert "ok" in result.stdout
+
+
+@pytest.mark.asyncio
+async def test_voice_toggle_is_remembered_and_shown(tmp_path, monkeypatch) -> None:
+    from openjarvis.hud import prefs
+    from openjarvis.hud.app import HudHeader
+
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))  # keep the saved choice local
+
+    app = _app()
+    async with app.run_test(size=(140, 44)) as pilot:
+        await _boot(pilot, app)
+        assert "VOICE OFF" in str(app.hud.query_one(HudHeader).render())
+        await _send(pilot, app, "/voice off")
+        await pilot.pause()
+        assert prefs.load()["voice"] is False

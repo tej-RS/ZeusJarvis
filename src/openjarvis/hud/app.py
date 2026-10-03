@@ -43,6 +43,7 @@ from textual.suggester import SuggestFromList
 from textual.widget import Widget
 from textual.widgets import Button, Footer, Input, RichLog, Static
 
+from openjarvis.hud import prefs
 from openjarvis.hud.commands import (
     COMMANDS,
     SLASH_NAMES,
@@ -157,6 +158,11 @@ class HudHeader(Widget):
         if app.session.model:
             left.append("   CORE ", style=TEXT_3)
             left.append(app.session.model, style=TEXT_2)
+        left.append("   VOICE ", style=TEXT_3)
+        left.append(
+            "ON" if app.voice_enabled else "OFF",
+            style=f"bold {CYAN}" if app.voice_enabled else TEXT_3,
+        )
         right = Text.assemble(
             (display_path(app.cwd), TEXT_3),
             ("   ", ""),
@@ -1308,6 +1314,9 @@ class JarvisOS(App):
         choice = arg.strip().lower()
         enabled = {"on": True, "off": False}.get(choice, not self.voice_enabled)
         self.voice_enabled = enabled
+        prefs.save(voice=enabled)  # the next launch starts the same way
+        if self.hud is not None:
+            self.hud.query_one(HudHeader).refresh()
         if enabled:
             self.system_message("Voice output on — warming up the voice…", CYAN)
             self._spawn(self._warm_voice)
