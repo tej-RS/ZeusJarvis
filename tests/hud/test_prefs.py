@@ -28,3 +28,9 @@ def test_corrupt_file_falls_back(tmp_path) -> None:
     assert prefs.voice_default() is True
     prefs.save(voice=False)
     assert prefs.load() == {"voice": False}
+
+
+def test_wake_word_is_opt_in_and_remembered() -> None:
+    assert prefs.wake_default() is False
+    prefs.save(wake=True)
+    assert prefs.wake_default() is True

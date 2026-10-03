@@ -38,4 +38,10 @@ def voice_default() -> bool:
     return value if isinstance(value, bool) else True
 
 
-__all__ = ["load", "save", "voice_default"]
+def wake_default() -> bool:
+    """The "Hey JARVIS" wake word keeps the microphone open, so it is opt-in."""
+    value = load().get("wake", False)
+    return value if isinstance(value, bool) else False
+
+
+__all__ = ["load", "save", "voice_default", "wake_default"]

@@ -121,6 +121,25 @@ def greeting() -> str:
     return "Good evening"
 
 
+_CHIME = "/System/Library/Sounds/Tink.aiff"
+_MIC_ATTEMPTS = 7  # about 30 s to answer macOS's microphone dialog
+_MIC_RETRY_SECONDS = 5
+
+
+def _chime() -> None:
+    """Short "I'm listening" sound, without blocking."""
+    if sys.platform == "darwin" and os.path.exists(_CHIME):
+        try:
+            subprocess.Popen(
+                ["afplay", _CHIME],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        except OSError:
+            pass
+
+
 def speakable(markdown: str) -> str:
     """Plain text for text-to-speech: no code blocks, links or markup."""
     text = re.sub(r"```.*?```", " (code omitted) ", markdown, flags=re.S)
@@ -162,6 +181,11 @@ class HudHeader(Widget):
         left.append(
             "ON" if app.voice_enabled else "OFF",
             style=f"bold {CYAN}" if app.voice_enabled else TEXT_3,
+        )
+        left.append("   WAKE ", style=TEXT_3)
+        left.append(
+            "ON" if app.wake_enabled else "OFF",
+            style=f"bold {GREEN}" if app.wake_enabled else TEXT_3,
         )
         right = Text.assemble(
             (display_path(app.cwd), TEXT_3),
@@ -638,6 +662,7 @@ def _quick_reference() -> Text:
         ("/open X", "app · url · file"),
         ("/sys", "system report"),
         ("/voice", "spoken replies"),
+        ("^G", "hey jarvis"),
         ("^T", "talk (mic)"),
         ("/help", "everything else"),
     )
@@ -717,6 +742,7 @@ class JarvisOS(App):
     BINDINGS = [
         Binding("ctrl+t,f2", "listen", "Talk"),
         Binding("ctrl+o,f3", "toggle_voice", "Voice"),
+        Binding("ctrl+g", "toggle_wake", "Wake word"),
         Binding("ctrl+l", "clear", "Clear"),
         Binding("f1", "help", "Help"),
         Binding("ctrl+q", "quit", "Shutdown", priority=True),
@@ -729,6 +755,7 @@ class JarvisOS(App):
         *,
         model: Optional[str] = None,
         voice: bool = False,
+        wake: bool = False,
         fast_boot: bool = False,
         session_factory: Callable[..., Any] = JarvisSession,
     ) -> None:
@@ -736,6 +763,8 @@ class JarvisOS(App):
         _start_resource_tracker()  # before run() swaps out stderr
         self.fast_boot = fast_boot
         self.voice_enabled = voice
+        self.wake_enabled = wake
+        self._wake: Any = None  # WakeWordListener once started
         self.cwd = Path.cwd()
         self.shell_path = os.environ.get("SHELL") or "/bin/sh"
         self.session = session_factory(
@@ -867,6 +896,8 @@ class JarvisOS(App):
             self.activity(f"core online · {self.session.model}", GREEN)
             if self.voice_enabled:
                 self._speak(text)
+            if self.wake_enabled:
+                self._spawn(self._start_wake)
         else:
             self.state = "offline"
             self.system_message(
@@ -891,6 +922,9 @@ class JarvisOS(App):
         self._kill_shell()
         self._stop_audio()
         self._restore_logs()
+        if self._wake is not None:
+            self._wake.stop()
+            self._wake = None
         if not self._closed:
             self._closed = True
             try:
@@ -1162,6 +1196,7 @@ class JarvisOS(App):
                 banner="J.A.R.V.I.S. OS · type 'exit' to return to the HUD",
             ),
             "voice": lambda: self.set_voice(arg),
+            "wake": lambda: self.set_wake(arg),
             "listen": lambda: self.action_listen(),
             "model": lambda: self.switch_model(arg),
             "remember": lambda: self.remember(arg),
@@ -1375,6 +1410,8 @@ class JarvisOS(App):
             text = self._record_and_transcribe()
         finally:
             self._post(self._audio_finished)
+            if self._wake is not None:
+                self._wake.resume()
         if text:
             self._post(self.submit_chat, text)
         elif text is not None:
@@ -1413,12 +1450,117 @@ class JarvisOS(App):
             self.system_message("Still working on your last request.", AMBER)
             return
         self._stop_audio()
+        if self._wake is not None:
+            self._wake.pause()  # don't let the command itself re-trigger it
         self.state = "listening"
         self._voice_thread = self._spawn(self._listen)
 
     def action_toggle_voice(self) -> None:
         if self.hud is not None:
             self.set_voice("")
+
+    # -- wake word ------------------------------------------------------------
+
+    def action_toggle_wake(self) -> None:
+        if self.hud is not None:
+            self.set_wake("")
+
+    def set_wake(self, arg: str) -> None:
+        choice = arg.strip().lower()
+        enabled = {"on": True, "off": False}.get(choice, not self.wake_enabled)
+        self.wake_enabled = enabled
+        prefs.save(wake=enabled)
+        if self.hud is not None:
+            self.hud.query_one(HudHeader).refresh()
+        if enabled:
+            if self._wake is None or not self._wake.running:
+                self.system_message("Starting the wake word…", CYAN)
+                self._spawn(self._start_wake)
+        else:
+            if self._wake is not None:
+                self._wake.stop()
+                self._wake = None
+            self.system_message("Wake word off.", TEXT_2)
+        self.activity(f"wake word · {'on' if enabled else 'off'}")
+
+    def _start_wake(self) -> None:
+        """Runs in a worker: loading the model can mean a first download.
+
+        The first time, macOS shows its microphone dialog and opening the
+        stream fails until the user answers, so keep retrying for a while.
+        """
+        try:
+            from openjarvis.speech.wake_word import WakeWordListener
+        except ImportError:
+            self._post(
+                self._wake_failed,
+                "openwakeword isn't installed (uv sync --extra voice).",
+            )
+            return
+        listener = WakeWordListener(self._wake_from_listener)
+        for attempt in range(_MIC_ATTEMPTS):
+            try:
+                listener.start()
+                break
+            except Exception as exc:
+                if "PortAudio" not in str(exc):
+                    self._post(self._wake_failed, str(exc))
+                    return
+                if attempt == _MIC_ATTEMPTS - 1 or not self.wake_enabled:
+                    self._post(
+                        self._wake_failed,
+                        "couldn't open the microphone. Allow Terminal in System "
+                        "Settings → Privacy & Security → Microphone, then press "
+                        "Ctrl+G.",
+                    )
+                    return
+                if attempt == 0:
+                    self._post(
+                        self.system_message,
+                        "Waiting for the microphone… if macOS asks to let Terminal "
+                        "use it, click OK.",
+                        AMBER,
+                    )
+                time.sleep(_MIC_RETRY_SECONDS)
+        self._post(self._wake_started, listener)
+
+    def _wake_started(self, listener: Any) -> None:
+        if not self.wake_enabled:  # switched off while it was loading
+            listener.stop()
+            return
+        self._wake = listener
+        self.system_message('Wake word on: say "Hey JARVIS".', GREEN)
+        # macOS hands a denied microphone silence, not an error.
+        self.set_timer(6, self._check_microphone)
+
+    def _check_microphone(self) -> None:
+        if self._wake is not None and not self._wake.audio_seen:
+            self.system_message(
+                "The microphone is silent. If macOS asked to let Terminal use the "
+                "microphone, click OK; otherwise turn Terminal on in System "
+                "Settings → Privacy & Security → Microphone and restart JARVIS OS.",
+                AMBER,
+            )
+
+    def _wake_failed(self, reason: str) -> None:
+        self.wake_enabled = False
+        if self.hud is not None:
+            self.hud.query_one(HudHeader).refresh()
+        self.system_message(f"Wake word unavailable: {reason}", RED)
+
+    def _wake_from_listener(self) -> None:
+        self.run_on_ui(self.on_wake_word)
+
+    def on_wake_word(self) -> None:
+        """'Hey JARVIS' was heard: interrupt any speech and take a command."""
+        if self.hud is None or self.screen is not self.hud or self.state == "listening":
+            return
+        if self._busy:
+            self.activity("wake word heard · still working", AMBER)
+            return
+        self.activity("wake word", GREEN)
+        _chime()
+        self.action_listen()
 
     def action_clear(self) -> None:
         if self.hud is None:
@@ -1445,6 +1587,7 @@ class JarvisOS(App):
         for keys, description in (
             ("Ctrl+T  / F2", "Talk to JARVIS (microphone)"),
             ("Ctrl+O  / F3", "Toggle spoken replies"),
+            ("Ctrl+G", 'Toggle the "Hey JARVIS" wake word'),
             ("Ctrl+L", "Clear the conversation"),
             ("Esc", "Stop the current reply, command or speech"),
             ("Ctrl+Q", "Shut down"),
