@@ -30,6 +30,7 @@ COMMANDS: tuple[tuple[str, str], ...] = (
     ("/time", "Current time and date"),
     ("/weather [place]", "Ask JARVIS for the weather"),
     ("/voice [on|off]", "Spoken replies (F3)"),
+    ("/wake [on|off]", 'Listen for "Hey JARVIS" (Ctrl+G)'),
     ("/listen", "Speak to JARVIS through the mic (F2)"),
     ("/model [name]", "Show or switch the AI model"),
     ("/remember <fact>", "Add a fact to your profile"),
@@ -55,6 +56,7 @@ SLASH_NAMES: tuple[str, ...] = (
     "sys",
     "time",
     "voice",
+    "wake",
     "weather",
 )
 

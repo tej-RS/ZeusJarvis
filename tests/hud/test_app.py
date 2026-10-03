@@ -326,3 +326,94 @@ async def test_voice_toggle_is_remembered_and_shown(tmp_path, monkeypatch) -> No
         await _send(pilot, app, "/voice off")
         await pilot.pause()
         assert prefs.load()["voice"] is False
+
+
+class FakeWakeListener:
+    instances: list = []
+
+    def __init__(self, on_wake, **_):
+        self.on_wake = on_wake
+        self.running = False
+        self.paused = False
+        self.audio_seen = True
+        FakeWakeListener.instances.append(self)
+
+    def start(self):
+        self.running = True
+
+    def stop(self):
+        self.running = False
+
+    def pause(self):
+        self.paused = True
+
+    def resume(self):
+        self.paused = False
+
+
+@pytest.mark.asyncio
+async def test_wake_word_takes_a_spoken_command(tmp_path, monkeypatch) -> None:
+    from openjarvis.hud import app as app_module
+    from openjarvis.hud import prefs
+    from openjarvis.hud.app import HudHeader
+    from openjarvis.speech import wake_word
+
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))  # keep the saved choice local
+    monkeypatch.setattr(wake_word, "WakeWordListener", FakeWakeListener)
+    monkeypatch.setattr(app_module, "_chime", lambda: None)
+    FakeWakeListener.instances.clear()
+
+    app = _app()
+    heard: list = []
+
+    def fake_record():
+        heard.append(app._wake.paused)  # recording happens with the wake word paused
+        return "turn it up"
+
+    monkeypatch.setattr(app, "_record_and_transcribe", fake_record)
+    async with app.run_test(size=(140, 44)) as pilot:
+        await _boot(pilot, app)
+        await _send(pilot, app, "/wake on")
+        await _until(pilot, lambda: app._wake is not None and app._wake.running)
+        assert prefs.load()["wake"] is True
+        assert "WAKE ON" in str(app.hud.query_one(HudHeader).render())
+
+        app._wake.on_wake()  # what the listener thread calls on "Hey JARVIS"
+        await _until(pilot, lambda: "Echo: turn it up" in _replies(app))
+        assert heard == [True]
+        assert app._wake.paused is False  # listening again afterwards
+
+        await _send(pilot, app, "/wake off")
+        await pilot.pause()
+        assert app._wake is None and prefs.load()["wake"] is False
+
+
+@pytest.mark.asyncio
+async def test_wake_word_retries_while_macos_asks_for_the_mic(
+    tmp_path, monkeypatch
+) -> None:
+    from openjarvis.hud import app as app_module
+    from openjarvis.speech import wake_word
+
+    monkeypatch.setenv("OPENJARVIS_HOME", str(tmp_path))
+    monkeypatch.setattr(app_module, "_MIC_RETRY_SECONDS", 0.05)
+
+    class FlakyListener(FakeWakeListener):
+        attempts = 0
+
+        def start(self):
+            FlakyListener.attempts += 1
+            if FlakyListener.attempts < 3:  # the permission dialog is still up
+                raise RuntimeError(
+                    "Error opening InputStream: Internal PortAudio error"
+                )
+            self.running = True
+
+    monkeypatch.setattr(wake_word, "WakeWordListener", FlakyListener)
+    app = _app()
+    async with app.run_test(size=(140, 44)) as pilot:
+        await _boot(pilot, app)
+        await _send(pilot, app, "/wake on")
+        await _until(pilot, lambda: app._wake is not None and app._wake.running)
+        assert FlakyListener.attempts == 3
+        assert app.wake_enabled

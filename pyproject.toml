@@ -107,6 +107,9 @@ voice = [
     "soundfile>=0.12",
     "sounddevice>=0.5",  # play_wav / record_until_silence in speech/voice_io.py
     "numpy>=1.24",
+    # "Hey JARVIS" wake word. Code is Apache-2.0; its pretrained models are
+    # CC BY-NC-SA 4.0 (personal, non-commercial use).
+    "openwakeword>=0.6",
 ]
 openhands = ["openhands-sdk>=1.0; python_version >= '3.12'"]
 # Apple Foundation Models (on-device AFM 3). Needs an Apple Silicon Mac on
