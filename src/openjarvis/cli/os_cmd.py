@@ -16,8 +16,15 @@ import click
     default=None,
     help="Speak replies aloud. Default: on, or as you last left it with Ctrl+O.",
 )
+@click.option(
+    "--wake/--no-wake",
+    default=None,
+    help='Listen for "Hey JARVIS". Default: as you last left it with Ctrl+G.',
+)
 @click.option("--fast", is_flag=True, default=False, help="Skip the boot animation.")
-def os_cmd(model: str | None, voice: bool | None, fast: bool) -> None:
+def os_cmd(
+    model: str | None, voice: bool | None, wake: bool | None, fast: bool
+) -> None:
     """Launch J.A.R.V.I.S. OS: chat, live diagnostics and your shell in one HUD.
 
     \b
@@ -26,7 +33,8 @@ def os_cmd(model: str | None, voice: bool | None, fast: bool) -> None:
       !<command>       run a shell command (editors and REPLs get the full terminal)
       /open <app|url>  open an app, website or file
       /help            all commands
-      Ctrl+T talk · Ctrl+O voice on/off · Esc stop · Ctrl+Q shut down
+      "Hey JARVIS" (Ctrl+G) or Ctrl+T to talk · Ctrl+O voice on/off
+      Esc stop · Ctrl+Q shut down
     """
     if not sys.stdin.isatty() or not sys.stdout.isatty():
         raise click.ClickException("J.A.R.V.I.S. OS needs an interactive terminal.")
@@ -44,7 +52,9 @@ def os_cmd(model: str | None, voice: bool | None, fast: bool) -> None:
 
     if voice is None:
         voice = prefs.voice_default()
-    app = JarvisOS(model=model, voice=voice, fast_boot=fast)
+    if wake is None:
+        wake = prefs.wake_default()
+    app = JarvisOS(model=model, voice=voice, wake=wake, fast_boot=fast)
     try:
         app.run()
     finally:
