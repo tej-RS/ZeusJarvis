@@ -26,7 +26,8 @@ SESSION_CONTEXT = (
     "fine. You may read files anywhere on this Mac. Running commands and "
     "writing or patching files show the user an Allow/Deny prompt first, so "
     "use those tools when they help instead of asking for permission in chat. "
-    "Apps can be driven with osascript through the shell. The user can run "
+    "Control the Mac's apps with the mac_apps, mac_media and mac_system "
+    "tools, and applescript for anything they don't cover. The user can run "
     "shell commands themselves by typing !<command>, open apps with "
     "/open <name>, and talk by voice with Ctrl+T."
 )
