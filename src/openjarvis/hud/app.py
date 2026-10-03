@@ -15,10 +15,13 @@ reports back with ``call_from_thread``.
 from __future__ import annotations
 
 import concurrent.futures
+import logging
 import os
+import queue
 import re
 import signal
 import subprocess
+import sys
 import threading
 import time
 from datetime import datetime
@@ -655,6 +658,51 @@ class _HudConsole:
         self._app.run_on_ui(self._app.system_message, Text.from_markup(message).plain)
 
 
+def _start_resource_tracker() -> None:
+    """Start multiprocessing's resource tracker while stderr is still real.
+
+    Libraries create multiprocessing locks lazily (tqdm does when the Whisper
+    and Kokoro models load). The first one launches the tracker process and
+    hands it ``sys.stderr.fileno()``; under Textual, stderr is a capture
+    object whose fileno() is -1, so the launch, and the model load with it,
+    fails with "bad value(s) in fds_to_keep".
+    """
+    if sys.platform == "win32":
+        return
+    try:
+        from multiprocessing import resource_tracker
+
+        resource_tracker.ensure_running()
+    except Exception:
+        logging.getLogger(__name__).debug(
+            "Could not start the resource tracker", exc_info=True
+        )
+
+
+class _ActivityStream:
+    """Stream for log handlers while the HUD runs: lines go to ACTIVITY.
+
+    Textual draws the HUD on the real stderr, so a handler still writing there
+    would print over the screen. Lines are queued, not posted: a handler
+    writes while holding its lock, and waiting on the UI thread from there
+    could deadlock against a log call made on the UI thread.
+    """
+
+    def __init__(self, lines: "queue.SimpleQueue[tuple[str, str]]") -> None:
+        self._lines = lines
+
+    def write(self, text: str) -> int:
+        for line in text.splitlines():
+            line = line.strip()
+            if line:
+                colour = RED if line.startswith(("ERROR", "CRITICAL")) else AMBER
+                self._lines.put((line[:160], colour))
+        return len(text)
+
+    def flush(self) -> None:
+        pass
+
+
 class JarvisOS(App):
     """J.A.R.V.I.S. OS."""
 
@@ -679,6 +727,7 @@ class JarvisOS(App):
         session_factory: Callable[..., Any] = JarvisSession,
     ) -> None:
         super().__init__()
+        _start_resource_tracker()  # before run() swaps out stderr
         self.fast_boot = fast_boot
         self.voice_enabled = voice
         self.cwd = Path.cwd()
@@ -699,13 +748,49 @@ class JarvisOS(App):
         self._tool_line: Optional[Static] = None
         self._working: Optional[Working] = None
         self._voice_thread: Optional[threading.Thread] = None
+        self._log_lines: "queue.SimpleQueue[tuple[str, str]]" = queue.SimpleQueue()
+        self._diverted: list[tuple[logging.StreamHandler, Any]] = []
         self._closed = False
 
     # -- plumbing ---------------------------------------------------------
 
     def on_mount(self) -> None:
         self._ui_thread = threading.get_ident()
+        self._divert_logs()
+        self.set_interval(0.25, self._drain_logs)
         self.push_screen(BootScreen())
+
+    def _divert_logs(self) -> None:
+        """Point log handlers that write to the terminal at ACTIVITY instead."""
+        sink = _ActivityStream(self._log_lines)
+        loggers = [logging.getLogger()] + [
+            logger
+            for logger in logging.Logger.manager.loggerDict.values()
+            if isinstance(logger, logging.Logger)
+        ]
+        for logger in loggers:
+            for handler in logger.handlers:
+                if (
+                    isinstance(handler, logging.StreamHandler)
+                    and not isinstance(handler, logging.FileHandler)
+                    and handler.stream in (sys.__stderr__, sys.__stdout__)
+                ):
+                    self._diverted.append((handler, handler.setStream(sink)))
+
+    def _restore_logs(self) -> None:
+        for handler, stream in self._diverted:
+            handler.setStream(stream)
+        self._diverted.clear()
+
+    def _drain_logs(self) -> None:
+        if self.hud is None:
+            return  # keep boot-time lines until the HUD can show them
+        while True:
+            try:
+                line, colour = self._log_lines.get_nowait()
+            except queue.Empty:
+                return
+            self.activity(line, colour)
 
     def _spawn(self, target: Callable[..., Any], *args: Any) -> threading.Thread:
         """Run blocking work on a daemon thread.
@@ -799,6 +884,7 @@ class JarvisOS(App):
                 future.set_result(False)  # unblock a worker waiting on the dialog
         self._kill_shell()
         self._stop_audio()
+        self._restore_logs()
         if not self._closed:
             self._closed = True
             try:

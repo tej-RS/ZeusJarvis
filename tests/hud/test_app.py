@@ -249,3 +249,64 @@ def test_speakable_strips_markdown() -> None:
         "# Title\n\n**Bold** and `code` with [a link](http://x).\n```py\nprint(1)\n```"
     )
     assert speakable(text) == "Title Bold and code with a link. (code omitted)"
+
+
+@pytest.mark.asyncio
+async def test_terminal_log_handlers_are_diverted_while_running() -> None:
+    import logging
+    import sys
+
+    logger = logging.getLogger("openjarvis.hud_divert_test")
+    handler = logging.StreamHandler(sys.__stderr__)
+    logger.addHandler(handler)
+    try:
+        app = _app()
+        async with app.run_test(size=(140, 44)) as pilot:
+            await _boot(pilot, app)
+            assert handler.stream is not sys.__stderr__
+            logger.warning("divert-check-123")
+            activity = app.hud.query_one("#activity")
+
+            def logged() -> bool:
+                text = "\n".join(
+                    "".join(s.text for s in line) for line in activity.lines
+                )
+                return "divert-check-123" in text
+
+            await _until(pilot, logged)
+        app.cleanup()
+        assert handler.stream is sys.__stderr__
+    finally:
+        logger.removeHandler(handler)
+
+
+def test_multiprocessing_locks_work_under_textual_stderr() -> None:
+    """Loading Whisper/Kokoro creates multiprocessing locks; the first one
+    launches Python's resource tracker, which needs a real stderr fd."""
+    import subprocess
+    import sys
+    import textwrap
+
+    code = textwrap.dedent(
+        """
+        import multiprocessing
+        from contextlib import redirect_stderr
+        from textual.app import _PrintCapture
+        from openjarvis.hud.app import JarvisOS
+
+        JarvisOS(session_factory=lambda **_: object())
+
+        class _App:
+            def _print(self, *args, **kwargs):
+                pass
+
+        with redirect_stderr(_PrintCapture(_App(), stderr=True)):
+            multiprocessing.Lock()
+        print("ok")
+        """
+    )
+    result = subprocess.run(
+        [sys.executable, "-c", code], capture_output=True, text=True, timeout=120
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    assert "ok" in result.stdout

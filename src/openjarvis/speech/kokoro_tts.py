@@ -13,13 +13,69 @@ female (prefix ``z`` → ``lang_code="z"``).
 
 from __future__ import annotations
 
+import importlib
+import importlib.util
 import io
+import shutil
+import subprocess
+import sys
 import threading
 from collections import OrderedDict
 from typing import Any, Dict, List
 
 from openjarvis.core.registry import TTSRegistry
 from openjarvis.speech.tts import TTSBackend, TTSResult
+
+# spaCy pipeline misaki's English G2P loads (lang codes "a" and "b").
+_SPACY_ENGLISH = "en_core_web_sm"
+
+
+def _ensure_spacy_english() -> None:
+    """Install the spaCy model English G2P needs, quietly, before misaki does.
+
+    Left to itself misaki calls ``spacy.cli.download`` on first use. That runs
+    pip, or ``uv pip install`` when the venv has no pip, in a child process
+    that writes straight to the terminal (scrambling full-screen UIs such as
+    ``jarvis os``), and uv installs into whichever venv the *current
+    directory* has rather than this interpreter's, so it fails when launched
+    from elsewhere. Install into ``sys.executable`` with output captured.
+    """
+    try:
+        import spacy.util
+    except ImportError:
+        return  # misaki will report the missing dependency itself
+    if spacy.util.is_package(_SPACY_ENGLISH):
+        return
+
+    from spacy import about
+    from spacy.cli.download import get_compatibility, get_model_filename, get_version
+
+    version = get_version(_SPACY_ENGLISH, get_compatibility())
+    url = f"{about.__download_url__}/{get_model_filename(_SPACY_ENGLISH, version)}"
+    if importlib.util.find_spec("pip") is not None:
+        installer = [sys.executable, "-m", "pip", "install"]
+    elif shutil.which("uv"):
+        installer = ["uv", "pip", "install", "--python", sys.executable]
+    else:
+        raise RuntimeError(
+            f"Kokoro needs the spaCy model {_SPACY_ENGLISH}; install pip or uv, "
+            f"or run: python -m spacy download {_SPACY_ENGLISH}"
+        )
+    result = subprocess.run(
+        [*installer, "--no-deps", url],
+        capture_output=True,
+        text=True,
+        timeout=600,
+        stdin=subprocess.DEVNULL,
+    )
+    if result.returncode != 0:
+        detail = (result.stderr or result.stdout).strip().splitlines()
+        raise RuntimeError(
+            f"Couldn't install spaCy model {_SPACY_ENGLISH}: "
+            f"{detail[-1] if detail else f'exit {result.returncode}'}"
+        )
+    importlib.invalidate_caches()
+
 
 # Kokoro's voice-prefix → ``lang_code`` mapping. Keep this in sync with
 # ``kokoro.pipeline.LANG_CODES``: Kokoro 0.9.x does not expose a Korean
@@ -91,6 +147,8 @@ class KokoroTTSBackend(TTSBackend):
                 raise RuntimeError(
                     "kokoro package not installed. Install with: pip install kokoro"
                 ) from exc
+            if lang_code in ("a", "b"):
+                _ensure_spacy_english()
             try:
                 # KModel is language-blind and is by far the heaviest part of
                 # Kokoro. Reuse one model across every language pipeline.
