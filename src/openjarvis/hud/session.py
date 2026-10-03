@@ -14,18 +14,40 @@ import socket
 import subprocess
 import threading
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 from typing import Any, Callable, List, Optional
 
 logger = logging.getLogger(__name__)
 
 SESSION_CONTEXT = (
-    "Interface: J.A.R.V.I.S. OS, a full-screen terminal HUD. Replies appear in a "
-    "terminal panel, so keep them concise; short markdown is fine. The user can "
-    "run shell commands themselves by typing !<command>, open apps with "
-    "/open <name>, and talk by voice with F2."
+    "Interface: J.A.R.V.I.S. OS, a full-screen terminal HUD on the user's Mac. "
+    "Replies appear in a terminal panel, so keep them concise; short markdown is "
+    "fine. You may read files anywhere on this Mac. Running commands and "
+    "writing or patching files show the user an Allow/Deny prompt first, so "
+    "use those tools when they help instead of asking for permission in chat. "
+    "Apps can be driven with osascript through the shell. The user can run "
+    "shell commands themselves by typing !<command>, open apps with "
+    "/open <name>, and talk by voice with Ctrl+T."
 )
+
+# J.A.R.V.I.S. OS offers these on top of the configured tools. They change
+# files, so like shell_exec every call asks first; that is why they are added
+# here rather than in config, where `jarvis ask` and the API run them unasked.
+HUD_EXTRA_TOOLS = ("file_write", "apply_patch")
+CONFIRM_FIRST = frozenset(HUD_EXTRA_TOOLS)
+
+
+def _confirming(tool_cls: type) -> type:
+    """Subclass of ``tool_cls`` whose spec requires the user's confirmation."""
+
+    class ConfirmFirst(tool_cls):  # type: ignore[misc, valid-type]
+        @property
+        def spec(self) -> Any:
+            return replace(super().spec, requires_confirmation=True)
+
+    ConfirmFirst.__name__ = ConfirmFirst.__qualname__ = tool_cls.__name__
+    return ConfirmFirst
 
 
 @dataclass(frozen=True)
@@ -173,6 +195,7 @@ class JarvisSession:
         )
         if not names:
             return []
+        names = list(dict.fromkeys([*names, *HUD_EXTRA_TOOLS]))
         import openjarvis.tools  # noqa: F401 — trigger registration
         from openjarvis.core.registry import ToolRegistry
         from openjarvis.tools._stubs import BaseTool
@@ -183,7 +206,7 @@ class JarvisSession:
                 continue
             entry = ToolRegistry.get(name)
             if isinstance(entry, type) and issubclass(entry, BaseTool):
-                tools.append(entry())
+                tools.append((_confirming(entry) if name in CONFIRM_FIRST else entry)())
             elif isinstance(entry, BaseTool):
                 tools.append(entry)
         return tools
